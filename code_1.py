@@ -22,6 +22,8 @@ lcd = LCD()
 threshold = 0 #CHANGE
 
 # Code below from: https://github.com/j-dohnalek/hx711py/blob/master/calibration.py
+
+# START OF REFERENCED CODE
 hx = HX711(5, 6, gain=128)
 
 def cleanAndExit():
@@ -85,6 +87,8 @@ def loop():
     except (KeyboardInterrupt, SystemExit):
         cleanAndExit()
 
+#END OF REFERENCED CODE
+        
 def get_value(time):
     grip = []
     while(time>0):
