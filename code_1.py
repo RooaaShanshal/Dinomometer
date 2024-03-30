@@ -1,14 +1,15 @@
 import RPi.GPIO as GPIO
-from rpi_lcd import LCD
+from lcd_api import LcdApi
+from i2c_lcd import I2cLcd
 from hx711 import HX711
 import sys
 import time
 
-LED_1 = 17
-LED_2 = 18
-LED_3 = 19
-LED_4 = 20
-LED_5 = 21
+LED_1 = 21 # green
+LED_2 = 25 # green
+LED_3 = 20 # yellow
+LED_4 = 19 # yellow
+LED_5 = 26 # red
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(LED_1, GPIO.out)
@@ -17,18 +18,24 @@ GPIO.setup(LED_3, GPIO.out)
 GPIO.setup(LED_4, GPIO.out)
 GPIO.setup(LED_4, GPIO.out)
 
+I2C_ADDR = 0x27
+I2C_NUM_ROWS = 4
+I2C_NUM_COLS = 16
 
-lcd = LCD()
-threshold = 0 #CHANGE
+lcd = I2cLcd(1, I2C_ADDR, I2C_NUM_ROWS, I2C_NUM_COLS)
+
+threshold = 0.5 #CHANGE
 
 # Code below from: https://github.com/j-dohnalek/hx711py/blob/master/calibration.py
 
 # START OF REFERENCED CODE
-hx = HX711(5, 6, gain=128)
+hx = HX711(6, 5, 128, 'A')
+
 
 def cleanAndExit():
     print("Cleaning up...")
     GPIO.cleanup()
+    lcd.clear()
     print("Bye!")
     sys.exit()
 
@@ -59,41 +66,15 @@ def calibrate():
     hx.set_scale(scale)
     print("Scale adjusted for grams: {}".format(scale))
 
-def loop():
-    """
-    code run continuously
-    """
-    try:
-        prompt_handled = False
-        while not prompt_handled:
-            val = hx.get_grams()
-            hx.power_down()
-            time.sleep(.001)
-            hx.power_up()
-            print("Item weighs {} grams.\n".format(val))
-            choice = input("Please choose:\n"
-                           "[1] Recalibrate.\n"
-                           "[2] Start the Dinomometer\n"
-                           "[0] Clean and exit.\n>")
-            if choice == "1":
-                calibrate()
-            elif choice == "2":
-                print("\nOffset: {}\nScale: {}".format(hx.get_offset(), hx.get_scale()))# CHANGE 
-            elif choice == "0":
-                prompt_handled = True
-                cleanAndExit()
-            else:
-                print("Invalid selection.\n")
-    except (KeyboardInterrupt, SystemExit):
-        cleanAndExit()
-
-#END OF REFERENCED CODE
-        
 def get_value(time):
     grip = []
+    lcd.putstr("Hold down!")
     while(time>0):
         grip.append(hx.get_grams())
         time -= 1
+    lcd.move_to(3, 1)
+    lcd.putstr("Let go!")
+    lcd.clear()
     return max(grip)
 
 def dino():
@@ -112,15 +93,52 @@ def dino():
         numTests -= 1
     message_1 = "Number of tests conducted:"+totalTests 
     message_2 = "Average force: "+ value/totalTests
-    lcd.text(message_1, 1)
-    lcd.text(message_2, 2)
-    time.sleep(100)
     lcd.clear()
-    GPIO.output(LED_1, GPIO.LOW)
-    GPIO.output(LED_2, GPIO.LOW)
-    GPIO.output(LED_3, GPIO.LOW)
-    GPIO.output(LED_4, GPIO.LOW)
-    GPIO.output(LED_5, GPIO.LOW)
-    GPIO.cleanup()
+    lcd.putstr(message_1)
+    lcd.move_to(3, 1)
+    lcd.putstr(message_2)
+    time.sleep(10)
+    # GPIO.output(LED_1, GPIO.LOW)
+    # GPIO.output(LED_2, GPIO.LOW)
+    # GPIO.output(LED_3, GPIO.LOW)
+    # GPIO.output(LED_4, GPIO.LOW)
+    # GPIO.output(LED_5, GPIO.LOW)
+    # GPIO.cleanup()
+
+
+
+def loop():
+    """
+    code run continuously
+    """
+    try:
+        prompt_handled = False
+        while not prompt_handled:
+            #val = hx.get_grams()
+            #hx.power_down()
+            #time.sleep(.001)
+            #hx.power_up()
+            #print("Item weighs {} grams.\n".format(val))
+            choice = input("Please choose:\n"
+                           "[1] Recalibrate.\n"
+                           "[2] Start the Dinomometer\n"
+                           "[0] Clean and exit.\n>")
+            if choice == "1":
+                calibrate()
+            elif choice == "2":
+                dino()
+                #print("\nOffset: {}\nScale: {}".format(hx.get_offset(), hx.get_scale()))# CHANGE 
+            elif choice == "0":
+                prompt_handled = True
+                cleanAndExit()
+            else:
+                print("Invalid selection.\n")
+    except (KeyboardInterrupt, SystemExit):
+        cleanAndExit()
+
+#END OF REFERENCED CODE
+        
+
+
 
 
