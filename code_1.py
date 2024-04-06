@@ -6,6 +6,7 @@ import sys
 import time
 
 LED = [LED(21), LED(25), LED(20), LED(19), LED(26)]
+# green, green, yellow, yellow, red
 
 I2C_ADDR = 0x27
 I2C_NUM_ROWS = 4
@@ -15,8 +16,18 @@ lcd = I2cLcd(1, I2C_ADDR, I2C_NUM_ROWS, I2C_NUM_COLS)
 
 hx = HX711(6, 5, 128, 'A')
 
-Offset = 0
-Ratio = 1
+class Variables():
+    def __init__(self):
+        self.Offset = 0
+        self.Ratio = 1
+
+    def update_Offset(self, newOffset):
+        self.Offset = newOffset
+
+    def update_Ratio(self, newRatio):
+        self.Ratio = newRatio
+
+variable = Variables()
 
 def cleanAndExit():
     lcd.clear()
@@ -35,24 +46,34 @@ def calibrate():
     lcd.clear()
     lcd.putstr("Remove items from strain gauge, press any key to continue")
     readyCheck = input("Remove items from Strain gauge, press any key to continue")
-    Offset = int(hx.get_raw_data(5))/5
+    
+    variable.update_Offset(int(sum(hx.get_raw_data(5)))/5)
+    
     lcd.clear()
     lcd.putstr("place an object w/ known weight, press any key when ready")
     readyCheck = input("Place an object with a known weight on strain gauge, press any key when ready")
-    measured = (hx.get_raw_data(5))/5
+    measured = sum(hx.get_raw_data(5))/5
+    print("measured: ", measured)
     print("Done")
     lcd.clear()
     lcd.putstr("Enter known weight into terminal")
     weight = int(input("Enter known weight of object here"))
-    Ratio = (int(measured)-Offset)/weight
+    
+    variable.update_Ratio((int(measured)-variable.Offset)/weight)
+
+    print("Ratio: ", variable.Ratio)
     lcd.clear()
     lcd.putstr("Calibration complete")
 
 def get_kg(value):
-    return value/Ratio
+    print("Measurement-Offset: ", value)
+    print("Ratio: ", variable.Ratio)
+    print("Offset: ", variable.Offset)
+    print("measurement in g: ", value/variable.Ratio)
+    return value/variable.Ratio
 
 def get_average(time):
-    return get_kg(sum(hx.get_raw_data(time))/time)
+    return get_kg((sum(hx.get_raw_data(time))/time)-variable.Offset)
 
 
 def dino():
@@ -70,6 +91,7 @@ def dino():
         measured = get_average(3)
         lcd.clear()
         lcd.putstr("Measurement taken!")
+        print("Measurement taken!")
         value+=measured
         time.sleep(5)
         lcd.clear()
@@ -82,18 +104,26 @@ def dino():
         testCounter -= 1
 
         time.sleep(5)
+    
+    lcd.clear()
+    lcd.putstr("Tests are complete")
 
-    message_1 = "Number of tests conducted:"+str(numTests)+"\n" 
+    message_1 = "# of tests: "+str(numTests)+"\n" 
     message_2 = "Average force: "+ str(value/numTests)+"\n"
     print(message_1)
     print(message_2)
     lcd.clear()
     lcd.putstr(message_1)
     lcd.putstr(message_2)
+    readyCheck = input("Press any key when ready to continue")
+    lcd.clear()
+    for led in LED:
+        led.off()
 
 
 
 def loop(): #code run continuously
+    calibrate()
     try:
         prompt_handled = False
         while not prompt_handled:
